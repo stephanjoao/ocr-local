@@ -1,0 +1,9 @@
+.venv/
+__pycache__/
+scans/*
+!scans/.gitkeep
+outputs/*
+!outputs/.gitkeep
+.ocr.lock
+tools/
+tmp/

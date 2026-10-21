@@ -1,0 +1,10 @@
+{
+  "model": "qwen3-vl:8b-instruct",
+  "num_ctx": 8192,
+  "num_predict": 4096,
+  "temperature": 0,
+  "max_image_side": 2000,
+  "pdf_dpi": 200,
+  "timeout_seconds": 600,
+  "review_enabled": true
+}
