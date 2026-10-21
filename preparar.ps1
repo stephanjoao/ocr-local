@@ -6,4 +6,4 @@ if (-not (Test-Path -LiteralPath '.venv\Scripts\python.exe')) {
 }
 & '.\.venv\Scripts\python.exe' -m pip install -r requirements.txt
 if ($LASTEXITCODE -ne 0) { throw 'Falha ao instalar dependencias.' }
-Write-Host 'Ambiente pronto. Execute .\rodar.ps1 --check para verificar o Ollama.'
+Write-Host 'Ambiente pronto. Execute .\caderno.ps1 verificar e depois .\caderno.ps1.'

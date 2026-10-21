@@ -1,240 +1,145 @@
-# OCR local do caderno de receitas
+# Caderno de receitas
 
-Transcreve scans usando **Qwen3-VL 8B Instruct no Ollama**, uma página por vez.
-Em seguida, compara a transcrição com a imagem, revisa a redação, padroniza unidades
-e organiza as receitas em Markdown, JSON e LaTeX com layout pronto para PDF.
-As imagens são enviadas somente à API local `127.0.0.1:11434`; os originais são preservados.
-O download das dependências e do modelo precisa de internet. Depois disso, o OCR pode rodar offline.
+Transforma imagens e PDFs de um caderno em um livro de receitas usando o Ollama
+local. O fluxo é **ler → responder às dúvidas → gerar PDF**. O programa não gera
+o PDF automaticamente durante a leitura ou quando você responde a uma pergunta.
 
-## Começar no Windows
+## Começar
 
-Abra o PowerShell nesta pasta:
+Com as dependências instaladas, abra a interface:
 
-```powershell
-cd "$HOME\Documents\Projects\ocr-local"
-.\preparar.ps1
-.\rodar.ps1 --check
+```bash
+./caderno
 ```
 
-O Ollama precisa estar aberto e ter o modelo:
+Acesse **http://localhost:8501**. Para outra porta: `./caderno abrir --porta 8502`.
+O Ollama precisa estar ativo com o modelo definido em `config.json`:
 
-```powershell
+```bash
 ollama pull qwen3-vl:8b-instruct
+./caderno verificar
 ```
 
-Se `ollama` não estiver no PATH:
+Para preparar um ambiente novo (Python 3.11 ou superior):
 
-```powershell
-& "$env:LOCALAPPDATA\Programs\Ollama\ollama.exe" pull qwen3-vl:8b-instruct
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
 ```
 
-Coloque seus arquivos em **scans/** (subpastas também são aceitas).
-Formatos: JPG, JPEG, PNG, WebP, BMP, TIFF multipágina e PDF.
-Arquivos PDF protegidos por senha precisam ser desbloqueados antes.
+Se o ambiente virtual não tiver pip, mas o Python do sistema tiver:
 
-Teste primeiro algumas páginas:
-
-```powershell
-.\rodar.ps1 --limit 3
+```bash
+python3 -m pip --python .venv/bin/python install -r requirements.txt
 ```
 
-Depois processe o restante:
+No Windows, use `preparar.ps1` e depois `caderno.ps1`. Os comandos são os mesmos:
+`./caderno verificar` no Linux corresponde a `.\caderno.ps1 verificar` no PowerShell.
 
-```powershell
-.\rodar.ps1
+## Na interface
+
+1. **Envie várias páginas à esquerda.** JPG, JPEG, PNG, WebP, BMP, TIFF multipágina
+   e PDF são aceitos. A ordem da seleção é preservada. Clique em **Ler páginas**.
+2. **Acompanhe a leitura no topo.** A etapa, o nome do arquivo e o número da página
+   aparecem separados da barra. O progresso conta páginas e etapas, não tempo estimado.
+3. **Confira a sequência.** Depois da leitura, o modelo procura continuações e
+   indícios de páginas fora de ordem. Em **Sequência**, veja a proposta e seus
+   motivos. Aceite, mantenha a ordem enviada ou mova/una trechos manualmente.
+   As junções preservam os textos e todas as páginas de origem.
+4. **Responda às dúvidas.** O original aparece à direita. Você pode corrigir um
+   trecho, manter a incerteza com aviso ou confirmar que conferiu o original.
+   Repetições exatas e abreviações são agrupadas com suas páginas de origem.
+5. **Revise as receitas.** Em **Receitas**, edite título, ingredientes, preparo e
+   observações; também é possível retirar uma receita do livro. Salve cada edição
+   antes de trocar de receita ou de formulário.
+6. **Gere o PDF.** Depois das respostas e da decisão sobre a sequência, confirme a conferência e clique em
+   **Gerar PDF**. O livro aparece à direita, com navegação por página e download.
+
+Cada receita começa em uma nova folha. Receitas longas continuam nas seguintes,
+sem reduzir o texto até ficar ilegível. Continuações entre scans só são unidas
+depois da confirmação. A análise usa grupos sobrepostos e compara títulos
+relacionados distantes; trechos sem título muito afastados podem precisar de
+ligação manual. A ordem enviada prevalece quando não há evidência suficiente.
+Os textos classificados como alheios às receitas ficam
+em **Conteúdo separado das receitas** e nos registros, fora do PDF.
+
+Alterar uma resposta ou receita invalida a prévia anterior. As versões do PDF
+continuam no disco; gere novamente para incluir as últimas mudanças.
+
+## No terminal
+
+```bash
+./caderno                         # abre a interface
+./caderno verificar               # verifica Ollama e modelo
+./caderno ler                     # lê a pasta scans/
+./caderno ler pagina1.jpg livro.pdf
+./caderno conferir                # responde às dúvidas do último lote
+./caderno pdf                     # pede confirmação e gera o livro
+./caderno listar                  # mostra os lotes salvos
+./caderno retomar                 # retoma leitura interrompida
 ```
 
-Para gerar também o **PDF diagramado**:
+`conferir`, `pdf` e `retomar` aceitam um ID de lote ou sua pasta. Exemplo:
+`./caderno conferir 20261021-180000-abcd1234`.
 
-```powershell
-.\instalar-latex.ps1
-.\rodar.ps1 --compile
-```
+Para uso sem terminal interativo, `./caderno pdf <lote> --confirmar` declara que
+você conferiu as receitas, mas **não ignora dúvidas pendentes**. Se houver páginas
+com falha, a geração exige também `--parcial`. Na interface existe uma opção
+equivalente. Não são feitas substituições silenciosas de quantidades ou unidades.
 
-O instalador usa Tectonic 0.17.0 oficial, valida o SHA256 e instala apenas em
-`tools/`, sem alterar o PATH ou instalar uma distribuição TeX global.
-A primeira compilação baixa os pacotes e fontes LaTeX necessários. Depois de
-armazenados em cache, esse mesmo layout pode ser compilado sem internet.
-Os textos das receitas não são enviados a um serviço de compilação.
+## Dados e retomada
 
-Para compilar um `.tex` que você editou, sem chamar o modelo:
-
-```powershell
-.\rodar.ps1 --compile-tex "caminho\receitas.tex"
-```
-
-Se a política do PowerShell bloquear scripts, use diretamente
-`.\.venv\Scripts\python.exe ocr.py`. Para preparar sem script:
-`python -m venv .venv`, seguido de
-`.\.venv\Scripts\python.exe -m pip install -r requirements.txt`.
-
-## Resultados
-
-Exemplo de estrutura (o identificador da versão é calculado automaticamente):
+Tudo é salvo em `outputs/lotes/<id>/`:
 
 ```text
-scans/
-  caderno.pdf
-  pagina-solta.jpg
-outputs/
-  caderno.pdf/
-    <versao>/
-      pagina-0001.txt
-      pagina-0001.png
-      pagina-0001.json
-      revisoes/
-        <versao-editorial>/
-          pagina-0001.revisado.md
-          pagina-0001.receitas.json
-          pagina-0001.revisao.json
-          pagina-0001.tex
-      pagina-0002.txt
-      ...
-  pagina-solta.jpg/
-    <versao>/
-      pagina-0001.txt
-      pagina-0001.png
-      pagina-0001.json
-  _runs/
-    <data-hora>.json
-  _livros/
-    <execucao>/
-      receitas.tex
-      receitas.json
-      receitas.pdf  (com --compile)
+lote.json                  # estado, respostas, correções e histórico
+originais/                 # cópias dos uploads, sem alterar os arquivos de origem
+processamento/             # transcrição, imagem de trabalho e revisão por página
+receitas-v*.pdf             # versões geradas depois da conferência
 ```
 
-- `.txt`: transcrição em UTF-8.
-- `.png`: imagem efetivamente usada na leitura, para comparação.
-- `.json`: origem, número da página, modelo, configuração, resposta original,
-  duração, integridade dos arquivos e avisos.
-- `_runs`: resumo de cada execução. Falhas não impedem os próximos arquivos.
-- `.revisado.md`: versão corrigida, organizada e legível.
-- `.receitas.json`: títulos, ingredientes, etapas, notas, avisos e alterações.
-- `.revisao.json`: resposta original da revisão, parâmetros e controle de integridade.
-- `.tex`: página diagramada, com texto escapado pelo programa; comandos que apareçam
-  na receita não são executados como LaTeX.
-- `_livros`: compilação das páginas visitadas no lote, na ordem dos nomes dos
-  arquivos e das páginas. Com `--limit`, o livro pode ser parcial. Rodar novamente
-  sem limite reúne todas as páginas, aproveitando as revisões já concluídas.
+Reabra um lote em **Trabalhos salvos** ou continue pelo terminal. A retomada
+aproveita OCR e revisões íntegros. Respostas e receitas editadas são preservadas.
+Os prompts e a configuração usados ficam registrados no lote; novas configurações
+valem para novos trabalhos. Mudança do modelo instalado exige um novo lote.
 
-Os arquivos individuais são **por página**, podendo conter várias receitas.
-Receitas que atravessam páginas não são unidas automaticamente; continuam
-identificadas pela origem. Não se inventam etapas faltantes para completá-las.
-Os PDFs são renderizados visualmente; não se presume que já tenham uma camada de texto.
+A leitura é sequencial. Mantenha a aba aberta enquanto ela roda. Se houver
+interrupção, retome o lote salvo. Após uma parada abrupta do processo, uma trava
+`.processing.lock` pode exigir remoção manual, somente se não houver leitura ativa.
 
-## Revisão e padronização
+Scans são enviados exclusivamente à API local `127.0.0.1:11434`. O download inicial
+das dependências e do modelo precisa de internet; a geração de PDF usa fontes
+incluídas na biblioteca e não depende de LaTeX nem de serviço externo.
 
-O fluxo padrão tem duas etapas:
+## Configuração e organização
 
-1. **OCR literal** com `prompt.txt`: preserva a grafia da página.
-2. **Revisão visual e editorial** com `prompt_revisao.txt`: corrige a escrita,
-   confere a imagem e organiza os dados. Usa o mesmo modelo local, sequencialmente.
+- `settings.py`: validação central da configuração e leitura dos prompts.
+- `ocr.py`: imagens, PDFs, API do Ollama, transcrição e retomada por integridade.
+- `editorial.py`: revisão visual estruturada, auditoria de medidas e exportação LaTeX legada.
+- `studio.py`: dúvidas recorrentes, substituições literais e composição do PDF.
+- `ordering.py`: análise de sequência, validação de ligações e composição de continuações.
+- `workflow.py`: lotes persistentes e regras de leitura, conferência e geração.
+- `app_streamlit.py`: interface, formulários e prévia renderizada do PDF.
+- `caderno.py`: comandos que usam o mesmo fluxo da interface.
+- `prompt.txt`: transcrição literal, incluindo textos alheios às receitas.
+- `prompt_revisao.txt`: seleção de receitas, revisão conservadora e perguntas.
+- `prompt_ordenacao.txt`: indícios para conectar e ordenar trechos sem inventar conteúdo.
 
-Exemplos de padronização:
+O modelo pode errar a classificação e a leitura, especialmente em manuscritos.
+Uma resposta “não sei” preserva o aviso no PDF. Conferência humana é necessária
+para quantidades, frações e abreviações; as respostas não treinam o modelo.
 
-| Original | Edição revisada |
-| --- | --- |
-| `100 grs` | `100g` |
-| `90grs` | `90g` |
-| `30 gramas` | `30g` |
-| `200 ml` | `200ml` |
-| `1 kg` | `1kg` |
-| `06 uvas` | `6 uvas` |
-| `1/2 xícara` | `1/2 xícara` |
+O comando antigo `python ocr.py` e `rodar.ps1` continuam disponíveis para operações
+avançadas por página e LaTeX. Esse fluxo não tem o questionário interativo; veja
+[CLI avançado](docs/CLI_AVANCADO.md). Prefira `caderno` para o fluxo com conferência.
 
-A normalização de símbolos inequívocos também é aplicada por regras em código,
-além do prompt. Isso não converte quantidades nem adivinha equivalências:
-`1 xícara` não vira um peso em gramas. Abreviações ambíguas como `c.e.` e `c.c.`,
-quantidades ausentes e trechos ilegíveis devem continuar sinalizados.
+## Verificação
 
-A revisão registra alterações propostas e verifica automaticamente diferenças
-na ocorrência de números e medidas com unidades. Quando quantidade e restante
-do ingrediente coincidem, uma expansão de abreviação ambígua é revertida para
-a abreviação original. Essa verificação é um alerta, não prova de correção:
-trocas entre ingredientes ou omissões de palavras ainda exigem conferência.
-
-O layout LaTeX usa papel A4, títulos em marrom, listas de ingredientes,
-preparo numerado, notas, origem e seção de pontos para conferir. É uma
-**edição para conferência**. Revise as receitas antes de tratá-la como edição final.
-
-Para desativar a segunda etapa em uma execução:
-
-```powershell
-.\rodar.ps1 --no-review
+```bash
+.venv/bin/python -m unittest discover -s tests -v
+.venv/bin/python tests/smoke_local.py   # opcional: usa o Ollama e uma imagem sintética
 ```
 
-Ou defina `"review_enabled": false` em `config.json`.
-
-## Retomada e versões
-
-Execute novamente o mesmo comando para retomar. Páginas completas com arquivos
-íntegros são ignoradas; falhas e respostas truncadas são tentadas novamente.
-`--limit` limita as páginas com trabalho pendente, incluindo revisão de OCR antigo,
-sem contar páginas com todas as etapas concluídas.
-Ctrl+C interrompe o lote; páginas já salvas ficam disponíveis.
-
-Uma mudança no scan, prompt, configuração ou versão do modelo cria outra pasta
-de versão, preservando as saídas anteriores. Um PDF alterado gera nova versão para
-todas as suas páginas. `--force` reprocessa e substitui as saídas da mesma versão.
-Mantenha correções manuais em arquivos separados: editar o `.txt` gerado invalida
-sua integridade e faz a próxima execução refazê-lo.
-
-O OCR e a revisão possuem retomadas independentes. Se a revisão falhar, o OCR
-completo continua salvo e a próxima execução tenta apenas a revisão. Mudar
-`prompt_revisao.txt` gera outra versão editorial sem repetir o OCR. Páginas já
-processadas pela primeira versão do projeto também recebem a revisão ao rodar
-novamente. Arquivos editoriais gerados são verificados por integridade; mantenha
-edições manuais em cópias separadas.
-
-Uma trava impede dois lotes simultâneos na mesma pasta de saída. Após uma interrupção
-brusca do computador, remova `outputs/.ocr.lock` somente se não houver lote rodando.
-
-## Ajustes e revisão
-
-Edite `prompt.txt` para mudar o OCR literal, `prompt_revisao.txt` para mudar a
-revisão e `config.json` para os parâmetros.
-O padrão usa contexto de 8192 tokens, até 4096 tokens de resposta e imagem com lado
-maior de até 2000 pixels. São valores iniciais para a RTX 3060 de 12 GB, não uma
-garantia de consumo máximo de memória. O primeiro processamento pode ser mais lento.
-
-Guarde scans coloridos de boa qualidade. Não há filtros destrutivos nem alteração
-dos originais. A imagem de trabalho é orientada conforme EXIF, recebe fundo branco
-se transparente e é reduzida mantendo a proporção. PDFs são renderizados até 200 dpi,
-respeitando o limite de pixels.
-
-Se a letra ficar pequena, teste recortes por receita ou aumente `max_image_side`;
-isso pode aumentar o uso de memória. Em falta de memória, feche outros programas
-que usam GPU ou reduza esse limite. Respostas truncadas ficam como `incomplete`;
-aumente `num_predict` e, se necessário, `num_ctx`, ou divida a página em recortes.
-
-**Toda transcrição exige revisão humana**, especialmente números, frações,
-ingredientes, tempos e temperaturas. `status: ok` significa execução concluída,
-não precisão verificada. O modelo pode inventar leituras sem marcar dúvida;
-os avisos não são uma pontuação de confiança.
-
-Não há treinamento automático com suas correções.
-
-## Testes
-
-```powershell
-.\.venv\Scripts\python.exe -m unittest discover -s tests -v
-```
-
-Para verificar também uma transcrição real no Ollama (usa a GPU e uma receita
-impressa sintética, sem tocar nas pastas de scans e resultados):
-
-```powershell
-.\.venv\Scripts\python.exe -X utf8 tests\smoke_local.py
-```
-
-Os testes cobrem OCR, retomada independente da revisão, falhas, medidas,
-preservação do original, estrutura JSON e escape de conteúdo para LaTeX.
-A precisão em manuscritos depende da legibilidade e exige avaliação com scans
-representativos do caderno.
-
-Documentação usada: [visão no Ollama](https://docs.ollama.com/capabilities/vision),
-[API de chat](https://docs.ollama.com/api/chat) e
-[modelo](https://ollama.com/library/qwen3-vl:8b-instruct),
-[saídas estruturadas](https://docs.ollama.com/capabilities/structured-outputs) e
-[compilador Tectonic](https://tectonic-typesetting.github.io/en-US/install.html).
+Os testes automatizados cobrem persistência, retomada, formulário de respostas,
+bloqueio de geração antes da conferência, PDF parcial, correções, paginação,
+escape de texto e preservação dos originais. O teste real não mede precisão em cursiva.

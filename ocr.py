@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 import hashlib
 import io
 import json
+import logging
 from pathlib import Path
 import sys
 import time
@@ -17,11 +18,13 @@ import uuid
 from PIL import Image, ImageOps
 import pypdfium2 as pdfium
 import editorial
+from settings import load_config
 
 ROOT = Path(__file__).resolve().parent
 API = "http://127.0.0.1:11434"
 EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp", ".bmp", ".tif", ".tiff", ".pdf"}
 PIPELINE_VERSION = 1
+logger = logging.getLogger(__name__)
 
 
 def now():
@@ -123,6 +126,15 @@ def pages(path: Path, config):
                 yield index + 1, prepare_image(image.copy(), config["max_image_side"])
 
 
+def page_count(path):
+    """Conta as páginas sem renderizar o documento inteiro."""
+    if path.suffix.lower() == ".pdf":
+        with pdfium.PdfDocument(str(path)) as document:
+            return len(document)
+    with Image.open(path) as image:
+        return getattr(image, "n_frames", 1)
+
+
 def transcribe(image_bytes, config, prompt):
     return api_request("/api/chat", {
         "model": config["model"],
@@ -155,12 +167,12 @@ def apply_review(prefix, record, config, review_prompt, model_digest, force=Fals
             api_request, write_json, atomic_write, force)
         return {**record, **result}
     except Exception as error:
-        print(f"  Página {record['page']}: ERRO na revisão: {error}", file=sys.stderr, flush=True)
+        logger.error("Página %s: erro na revisão: %s", record['page'], error)
         return {**record, "status": "error", "review_status": "error", "error": str(error)}
 
 
 def process_file(source, relative, output, config, prompt, model_digest,
-                 force=False, remaining=None, review_prompt=None):
+                 force=False, remaining=None, review_prompt=None, progress=None):
     # Alterar o prompt editorial não exige repetir o OCR já concluído.
     ocr_config = {key: config[key] for key in (
         "model", "num_ctx", "num_predict", "temperature", "max_image_side",
@@ -177,6 +189,8 @@ def process_file(source, relative, output, config, prompt, model_digest,
     records = []
     attempted = 0
     for number, image in pages(source, config):
+        if progress:
+            progress(number, "Preparando página")
         prefix = directory / f"pagina-{number:04}"
         text_path = prefix.with_suffix(".txt")
         meta_path = prefix.with_suffix(".json")
@@ -191,9 +205,13 @@ def process_file(source, relative, output, config, prompt, model_digest,
                 if pending and remaining is not None and attempted >= remaining:
                     break
                 attempted += int(pending)
+                if progress:
+                    progress(number, "Revisando e filtrando receitas")
                 entry = apply_review(prefix, entry, config, review_prompt, model_digest)
-            print(f"  Página {number}: OCR já concluído.", flush=True)
+            logger.info("Página %s: OCR já concluído.", number)
             records.append(entry)
+            if progress:
+                progress(number, "Página concluída")
             continue
         if remaining is not None and attempted >= remaining:
             break
@@ -209,8 +227,10 @@ def process_file(source, relative, output, config, prompt, model_digest,
         # Invalidar qualquer execução anterior antes de chamar o modelo.
         write_json(meta_path, {**meta, "status": "processing"})
         started = time.monotonic()
-        print(f"  Página {number}: lendo...", flush=True)
+        logger.info("Página %s: lendo…", number)
         try:
+            if progress:
+                progress(number, "Lendo texto da imagem")
             response = transcribe(image_bytes, config, prompt)
             text = response.get("message", {}).get("content", "").strip()
             if not text:
@@ -233,13 +253,17 @@ def process_file(source, relative, output, config, prompt, model_digest,
             })
             entry = {**record, "status": status, "warnings": warnings}
             if status == "ok" and review_prompt is not None:
+                if progress:
+                    progress(number, "Revisando e filtrando receitas")
                 entry = apply_review(prefix, entry, config, review_prompt, model_digest, force)
             records.append(entry)
-            print(f"  Página {number}: {status} -> {text_path}", flush=True)
+            logger.info("Página %s: %s", number, status)
         except Exception as error:
             write_json(meta_path, {**meta, "status": "error", "error": str(error)})
             records.append({**record, "status": "error", "error": str(error)})
-            print(f"  Página {number}: ERRO: {error}", file=sys.stderr, flush=True)
+            logger.error("Página %s: %s", number, error)
+        if progress:
+            progress(number, "Página concluída")
     return records, attempted
 
 
@@ -270,18 +294,13 @@ def main(argv=None):
             raise ValueError("Informe um arquivo .tex existente.")
         print(f"PDF: {editorial.compile_latex(tex)}")
         return 0
-    config = json.loads(args.config.read_text(encoding="utf-8-sig"))
+    config = load_config(args.config)
     review_enabled = config.get("review_enabled", True) and not args.no_review
     if args.compile and not review_enabled:
         raise ValueError("--compile exige revisão habilitada.")
     review_prompt = args.review_prompt.read_text(encoding="utf-8-sig").strip() if review_enabled else None
     if review_enabled and not review_prompt:
         raise ValueError("O prompt de revisão não pode estar vazio.")
-    for field in ("num_ctx", "num_predict", "max_image_side", "pdf_dpi", "timeout_seconds"):
-        if type(config.get(field)) is not int or config[field] <= 0:
-            raise ValueError(f"Configuração inválida: {field} deve ser inteiro positivo.")
-    if config["num_predict"] >= config["num_ctx"]:
-        raise ValueError("num_predict deve ser menor que num_ctx, reservando espaço à imagem.")
     prompt = args.prompt.read_text(encoding="utf-8-sig").strip()
     if not prompt:
         raise ValueError("O prompt não pode estar vazio.")
@@ -363,6 +382,7 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO, format="%(message)s")
     try:
         raise SystemExit(main())
     except (RuntimeError, ValueError, OSError) as error:

@@ -1,0 +1,27 @@
+.block-container { max-width: 1440px; padding: 2.3rem 2.2rem 3rem; }
+h1 { font-size: 2rem !important; letter-spacing: -.055rem; padding-bottom: .35rem !important; }
+h2 { font-size: 1.25rem !important; }
+h3 { font-size: 1.05rem !important; }
+[data-testid="stHeader"] { background: transparent; }
+[data-testid="stCaptionContainer"] { font-size: .88rem; line-height: 1.5; }
+[data-testid="stVerticalBlockBorderWrapper"] { border-radius: 14px; }
+[data-testid="stFileUploaderDropzone"] { padding: 1.5rem 1rem; }
+[data-testid="stProgress"] { padding: .15rem 0 .5rem; }
+[data-testid="stButton"] button, [data-testid="stDownloadButton"] button { min-height: 2.7rem; }
+.workflow { display: flex; gap: 12px; margin: .8rem 0 .65rem; }
+.workflow-step { flex: 1; border: 1px solid var(--border-color, #cdd5cd); border-radius: 10px; padding: .65rem .9rem; font-size: .9rem; }
+.workflow-step.active { border-color: #568069; border-width: 2px; font-weight: 650; }
+.workflow-step .number { display: inline-block; margin-right: .6rem; font-weight: 700; }
+.empty-preview { min-height: 360px; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 2rem; border: 1px dashed #aebcae; border-radius: 14px; }
+.empty-preview strong { font-size: 1.2rem; margin: 1rem 0 .4rem; }
+.empty-preview p { max-width: 330px; line-height: 1.6; }
+@media (max-width: 750px) {
+  .block-container { padding: 1.5rem 1rem; }
+  .workflow { gap: 5px; }
+  .workflow-step { padding: .6rem .4rem; font-size: .78rem; }
+  .workflow-step .number { margin-right: .2rem; }
+}
+[data-testid="stLayoutWrapper"]:has(> .st-key-workflow_progress) { position: sticky; top: 2.8rem; z-index: 10; }
+.st-key-workflow_progress { background: light-dark(#f6f7f3, #0e1117); gap: .35rem; }
+.st-key-workflow_progress .workflow { margin-top: 0; }
+.stAppDeployButton { display: none; }

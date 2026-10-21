@@ -1,40 +1,16 @@
-=== COMO RODAR O STREAMLIT ===
+# Interface
 
-1. ABRA UM NOVO TERMINAL/POWERSHIELD OU CMD E DIGITE ESTE COMANDO:
+Execute `./caderno` e abra http://localhost:8501.
+No Windows: `.\caderno.ps1`.
 
-   streamlit run app_streamlit.py
-   
-   ou se preferir usar python.exe diretamente:
+**Envie páginas → confira a sequência → responda às dúvidas → gere o PDF.**
 
-   python.exe -m streamlit run app_streamlit.py
+Em **Sequência**, o aplicativo sugere ligações entre continuações, inclusive fora
+da ordem de envio. Você pode aceitar, manter a ordem enviada ou ajustar os trechos.
 
+Os originais aparecem à direita durante a conferência. O PDF ocupa esse espaço
+somente depois de você responder às perguntas e confirmar a geração.
+A barra de progresso fica no topo, com etapa e página em linhas separadas.
 
-2. A APLICAÇÃO VAI SE INICIAR EM:
-   http://localhost:8501
-
-
-3. NO STREAMLIT, VOCÊ VÁ VER:
-   
-   [SIDEBAR (ESQUERDA)]
-   - Modelos do Ollama disponíveis
-   - Configurações ajustáveis
-   
-   [PÁGINA PRINCIPAL]
-   - Pasta scans: lista os arquivos (imagens/PDFs)
-   - Botões rápidos: Gerar Resumo, Estatísticas
-
-
-4. COLOQUE SEUS ARQUIVOS NA PASTA:
-   
-   C:\Users\joaos\Documents\Projects\ocr-local\scans
-   
-   Formatos suportados: JPG, PNG, TIFF, PDF
-
-
-5. PARA ADICIONAR CONFIGURAÇÕES CUSTOMIZADAS:
-   
-   Edite o arquivo: config.json
-   
-   No diretório raiz do projeto.
-
-=== FIM ===
+Se fechar a sessão, use **Trabalhos salvos** para reabrir o lote.
+Instruções completas de instalação, uso e terminal estão no [README](README.md).

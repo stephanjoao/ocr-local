@@ -7,12 +7,13 @@ from copy import deepcopy
 from fractions import Fraction
 import hashlib
 import json
+import logging
 from pathlib import Path
 import re
 import shutil
 import subprocess
 
-VERSION = 2
+VERSION = 3
 STRINGS = {"type": "array", "items": {"type": "string"}}
 RECIPE = {
     "type": "object",
@@ -193,7 +194,9 @@ def tex_list(items, numbered=False):
 def tex_page(data, source, page):
     body = [r"\begin{flushleft}{\small\sffamily\color{muted}ORIGEM: ",
             tex_escape(source), f" | página {page}", r"}\end{flushleft}", "\n"]
-    for recipe in data["receitas"]:
+    for index, recipe in enumerate(data["receitas"]):
+        if index:
+            body += ["\n\\clearpage\n"]
         body += ["\\section*{" + tex_escape(recipe["titulo"]) + "}\n"]
         if recipe["ingredientes"]:
             body += [r"\subsection*{Ingredientes}", tex_list(recipe["ingredientes"])]
@@ -294,7 +297,7 @@ def review_page(prefix, record, config, prompt, model_digest, api_request, write
     result = {"editorial": str(base.with_suffix(".receitas.json").resolve())}
     if not force and review_reusable(base):
         return {**result, "review_status": "skipped"}
-    print(f"  Página {record['page']}: revisando texto e medidas...", flush=True)
+    logging.getLogger(__name__).info("Página %s: revisando texto e medidas…", record['page'])
     original = prefix.with_suffix(".txt").read_text(encoding="utf-8")
     write_json(meta_path, {**identity, "status": "processing"})
     response = None
